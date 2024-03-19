@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "riot-xmpp"
-version = "0.1.0"
+version = "0.1.1"
 description = "A client to connect and process messages from the Riot/Valorant XMPP servers."
 authors = ["w1gs <https://github.com/w1gs>"]
 readme = "README.md"
