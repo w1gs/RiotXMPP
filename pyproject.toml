@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "riot-xmpp"
+version = "0.1.0"
+description = "A client to connect and process messages from the Riot/Valorant XMPP servers."
+authors = ["w1gs <https://github.com/w1gs>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+loguru = "^0.7.2"
+asyncio = "^3.4.3"
+
+
+[tool.poetry.group.dev.dependencies]
+pyink = "^23.12.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
