@@ -1,0 +1,2 @@
+class AuthFailure(Exception):
+    pass

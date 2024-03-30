@@ -4,7 +4,7 @@ import sys
 from typing import Dict
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
-
+from src.exceptions import AuthFailure
 from loguru import logger
 
 
@@ -66,6 +66,7 @@ class RiotXMMPClient:
         self.chat_host = chat_host
         self.chat_port = chat_port
         self.puuid = puuid
+        self.connected = False
         self.context = ssl.create_default_context()
         self.context.check_hostname = True
         self.context.verify_mode = ssl.CERT_REQUIRED
@@ -155,7 +156,7 @@ class RiotXMMPClient:
 
     async def connect(self):
         """Establishes the connection to the server."""
-
+        self.connected = True
         try:
             self.logger.info(f"Connecting to {self.chat_host}...")
             self.reader, self.writer = await asyncio.open_connection(
@@ -164,84 +165,86 @@ class RiotXMMPClient:
             self.logger.info(
                 f"Successfully connected to {self.chat_host} on port {self.chat_port}"
             )
-            return True
         except Exception as e:
+            self.connected = False
             self.logger.error(f"Failed to connect: {e}")
-            return False
 
     async def start_auth_flow(self):
         """Starts the authentication flow for the XMPP client."""
+        auth_flow = [
+            {
+                "stanza": self.get_stream_element(),
+                "seperator": b"</stream:features>",
+                "stage": "stream element",
+            },
+            {
+                "stanza": self.get_rso_auth(),
+                "seperator": b"</success>",
+                "stage": "RSO auth element",
+            },
+            {
+                "stanza": self.get_stream_element(),
+                "seperator": b"</stream:features>",
+                "stage": "stream element",
+            },
+            {
+                "stanza": self.get_bind_request(),
+                "seperator": b"</bind></iq>",
+                "stage": "bind element",
+            },
+            {
+                "stanza": self.get_entitlement_request(),
+                "seperator": b"></iq>",
+                "stage": "entitlement element",
+            },
+            {
+                "stanza": self.get_session_request(),
+                "seperator": b"</session></iq>",
+                "stage": "session element",
+            },
+        ]
 
+        # Start the auth flow
         try:
-            # TODO add in checks for separators when a stanza fails
-            auth_flow = [
-                {
-                    "stanza": self.get_stream_element(),
-                    "seperator": b"</stream:features>",
-                    "stage": "stream element",
-                },
-                {
-                    "stanza": self.get_rso_auth(),
-                    "seperator": b"</success>",
-                    "stage": "RSO auth element",
-                },
-                {
-                    "stanza": self.get_stream_element(),
-                    "seperator": b"</stream:features>",
-                    "stage": "stream element",
-                },
-                {
-                    "stanza": self.get_bind_request(),
-                    "seperator": b"</bind></iq>",
-                    "stage": "bind element",
-                },
-                {
-                    "stanza": self.get_entitlement_request(),
-                    "seperator": b"></iq>",
-                    "stage": "entitlement element",
-                },
-                {
-                    "stanza": self.get_session_request(),
-                    "seperator": b"</session></iq>",
-                    "stage": "session element",
-                },
-            ]
-
-            # Start the auth flow
             for item in auth_flow:
                 self.logger.info(f"Sending {item['stage']}...")
                 await self.send(item["stanza"])
                 response = await self.recv_until(item["seperator"])
                 if response:
+                    if "fail" in response:
+                        raise AuthFailure(response)
+                else:
                     self.logger.log("RESPONSE", f"\n{response}\n")
-
-            # Retrieve friends presences and print each presence as they come
-            self.logger.info("Sending <presence/>...")
-            await self.send(message=b"<presence/>")
-            presences = await self.recv_until(b"</presence>")
-            self.logger.log("RESPONSE", f"\n{presences}\n")
-
         except Exception as e:
-            self.logger.exception(f"Auth flow failed: {e}")
+            self.logger.error(f"Authentication flow failed:\n{e}")
+            await self.close()
 
-    async def process_messages(self):
+    async def process_presences(self):
         """Processes incoming XMPP messages."""
 
         # Loop through to read the socket endlessly
-        self.logger.info("Starting message processing loop...")
-        while True:
-            try:
-                presence = await self.recv_until(b"</presence>")
-                # If there's no messages/presences to process, sleep for 2 seconds and try again
-                if not presence or len(presence.strip()) < 10:
-                    await asyncio.sleep(2)
-                    continue
-                else:
-                    self.logger.log("RESPONSE", f"\n{presence}\n")
+        if self.connected is False:
+            self.logger.log(
+                "ERROR", "Failed to start processing: connection is not established"
+            )
+            return
+        else:
+            self.logger.info("Sending <presence/>...")
+            await self.send(message=b"<presence/>")
+            self.logger.info("Starting presence processing loop...")
+            while True:
+                try:
+                    presence = await self.recv_until(b"</presence>")
+                    # If there's no messages/presences to process, sleep for 2 seconds and try again
+                    if not presence or len(presence.strip()) < 10:
+                        await asyncio.sleep(2)
+                        continue
+                    else:
+                        self.logger.log("RESPONSE", f"\n{presence}\n")
 
-            except asyncio.exceptions.IncompleteReadError:
-                self.logger.warning("Shutting down...")
-                break
+                except asyncio.exceptions.IncompleteReadError:
+                    self.logger.warning("Shutting down...")
+                    break
 
     async def send(self, message: bytes):
         """Sends a message to the server.
@@ -263,14 +266,23 @@ class RiotXMMPClient:
             str: The incoming message from the server.
         """
         try:
-            msg = await self.reader.readuntil(separator=seperator)
-            return msg.decode("utf-8")
+            # Determining if request failed. Probably not the best way to do this but it works.
+            msg = await self.reader.read(7)
+            status = msg.decode("utf-8")
+            if "fail" in status:
+                msg = await self.reader.readuntil(b"</failure>")
+                msg = msg.decode("utf-8")
+                return f"{status}{msg}"
+            else:
+                msg = await self.reader.readuntil(separator=seperator)
+                msg = msg.decode("utf-8")
+                return f"{status}{msg}"
         except asyncio.exceptions.CancelledError:
             await self.close()
 
     async def close(self):
         """Closes the XMPP client connection."""
-
+        self.connected = False
         self.logger.warning("Closing connection...")
         self.writer.close()
         await self.writer.wait_closed()
