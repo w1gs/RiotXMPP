@@ -37,16 +37,16 @@ async def main():
     # Initiate the authentication flow
     await client.start_auth_flow()
 
-    try:
+    # Don't start processing messages if client not connected
+    if client.connected is True:
         # Start the main loop to start processing presences
-        await client.process_messages()
-    except asyncio.exceptions.IncompleteReadError:
-        print("Shutting down...")
+        await client.process_presences()
 
 
 if __name__ == "__main__":
     # Run the loop using asyncio
     asyncio.run(main())
+
 
 ```
 
