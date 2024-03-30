@@ -1,6 +1,5 @@
 import asyncio
 import ssl
-import sys
 from typing import Dict
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
