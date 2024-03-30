@@ -34,8 +34,8 @@ class RiotXMMPClient:
         Initiates the connection to the Riot XMPP server
     async start_auth_flow():
         Starts the authentication flow
-    async process_messages():
-        Processes incoming XMPP messages
+    async process_presences():
+        Processes incoming XMPP presences
     async send(message: bytes):
         Sends a message to the server
     async recv_until(seperator: bytes) -> str:
