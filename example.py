@@ -1,25 +1,19 @@
-from src.RiotXMPP import RiotXMMPClient
+from src.Handlers.RiotXMPP import RiotXMMPClient
+from src.Handlers.Auth import ValorantAuth
 import asyncio
 
 
 async def main():
-    creds = {
-        "rso_token": "xxxxxxxx",
-        "entitlements_token": "xxxxxxxx",
-        "pas_token": "xxxxxxxx",
-    }
-
-    region = "na1"
-    chat_host = "na2.chat.si.riotgames.com"
-    chat_port = 5223
-    puuid = "xxxxxxxx"
+    # Get authentication information of logged-in user
+    auth = ValorantAuth(auth_type="local")
+    creds = auth.tokens
 
     client = RiotXMMPClient(
         credentials=creds,
-        region=region,
-        chat_host=chat_host,
-        chat_port=chat_port,
-        puuid=puuid,
+        region=auth.user_info["region"],
+        chat_host=auth.user_info["chat_host"],
+        chat_port=auth.user_info["chat_port"],
+        puuid=auth.user_info["puuid"],
     )
 
     # Establish the connection
@@ -28,7 +22,7 @@ async def main():
     # Initiate the authentication flow
     await client.start_auth_flow()
 
-    # Don't start processing messages if client not connected
+    # Don't start processing messages if client is not connected
     if client.connected is True:
         # Start the main loop to start processing presences
         await client.process_presences()

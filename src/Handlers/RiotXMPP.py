@@ -5,7 +5,7 @@ from typing import Dict
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
 from src.exceptions import AuthFailure
-from loguru import logger
+from . import logger
 
 
 class RiotXMMPClient:
@@ -45,17 +45,17 @@ class RiotXMMPClient:
     """
 
     def __init__(
-        self,
-        credentials: Dict[str, str],
-        chat_host: str,
-        chat_port: int,
-        region: str,
-        puuid: str,
+            self,
+            credentials: Dict[str, str],
+            chat_host: str,
+            chat_port: int,
+            region: str,
+            puuid: str,
     ) -> None:
         """Initializes the RiotXMPP object."""
         self.reader = None
         self.writer = None
-        self.logger = None
+        self.logger = logger
         self.rso_token = credentials["rso_token"]
         self.pas_token = credentials["pas_token"]
         self.entitlements_token = credentials["entitlements_token"]
@@ -70,21 +70,6 @@ class RiotXMMPClient:
         self.context = ssl.create_default_context()
         self.context.check_hostname = True
         self.context.verify_mode = ssl.CERT_REQUIRED
-        self._setup_logger()
-
-    def _setup_logger(self):
-        """Configures the logger with specified log level and format."""
-
-        logger.remove()
-        logger.add(
-            sys.stdout,
-            level="TRACE",
-            format="<level>[{level}] {message}</level>",
-        )
-        logger.level("RESPONSE", no=23, color="<green>")
-        logger.level("REQUEST", no=22, color="<blue>")
-        logger.level("INFO", color="<magenta>")
-        self.logger = logger
 
     def get_stream_element(self) -> bytes:
         """Returns the stream element in byte format."""
@@ -162,7 +147,7 @@ class RiotXMMPClient:
             self.reader, self.writer = await asyncio.open_connection(
                 host=self.chat_host, port=self.chat_port, ssl=self.context
             )
-            self.logger.info(
+            self.logger.success(
                 f"Successfully connected to {self.chat_host} on port {self.chat_port}"
             )
         except Exception as e:
