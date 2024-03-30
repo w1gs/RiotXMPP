@@ -1,6 +1,5 @@
 import base64
 import os
-import sys
 from typing import Literal
 import httpx
 import psutil
@@ -144,12 +143,14 @@ class ValorantAuth:
                 self.logger.error(response.status_code)
                 raise AuthFailure("Not authenticated to in game chat")
             user_info = response.json()
+            self.logger.debug(user_info)
             user_info["game_name"] = f"{user_info['game_name']}#{user_info['game_tag']}"
             affinity_info = client.put(
                 "https://riot-geo.pas.si.riotgames.com/pas/v1/product/valorant",
                 headers={"Authorization": f"Bearer {self.tokens['rso_token']}"},
                 json={"id_token": self.tokens["id_token"]},
             ).json()
+            self.logger.debug(affinity_info)
 
             user_info["affinity_region"] = affinity_info["affinities"]["live"]
 
@@ -170,7 +171,9 @@ class ValorantAuth:
                 headers=self.local_headers,
             ).json()
 
-            user_info["chat_host"] = user_chat_config["chat.host"]
+            user_info["chat_host"] = user_chat_config.get("chat.affinities").get(
+                user_info["region"]
+            )
             user_info["chat_port"] = user_chat_config["chat.port"]
             return user_info
         except AuthFailure as e:

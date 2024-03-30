@@ -1,8 +1,12 @@
 # RiotXMPP
 RiotXMPP is a python client for connecting to the Riot/Valorant XMPP servers easily. 
 This will handle the whole flow of connecting to the servers, authenticating the user, and begin logging the incoming XMPP presences of the
-authenticated users friends. Currently, the client only prints out the received messages to the console but can be easily changed to log to a file, decode presences, send presence updates, etc.
+authenticated users friends. Currently, the client only prints out the received messages to the console but can be easily changed to log to a file, send presence updates, etc.
 These features will eventually be added as this is still a work in progress. 
+
+### Features
+    - Automatic authentication to XMPP server when Valorant is running via local api endpoints
+    - Ability to decode presence data
 
 ### Example code:
 
@@ -31,16 +35,18 @@ async def main():
     # Initiate the authentication flow
     await client.start_auth_flow()
 
-    # Don't start processing messages if client is not connected
+    # # Don't start processing messages if client is not connected
     if client.connected is True:
-        # Start the main loop to start processing presences
-        await client.process_presences()
+        # Start the main loop to start processing presences and decoding them
+        await client.process_presences(decode=True)
 
 
 if __name__ == "__main__":
     # Run the loop using asyncio
     asyncio.run(main())
 
+
 ```
 
-![img.png](img.png)
+![img.png](images/img.png)
+![img.png](images/img2.png)

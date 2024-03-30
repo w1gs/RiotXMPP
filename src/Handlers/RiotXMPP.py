@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import json
 import ssl
 from typing import Dict
 from xml.etree import ElementTree
@@ -195,15 +197,37 @@ class RiotXMMPClient:
                 await self.send(item["stanza"])
                 response = await self.recv_until(item["seperator"])
                 if response:
-                    if "fail" in response:
+                    if "<fail" in response:
                         raise AuthFailure(response)
-                else:
-                    self.logger.log("RESPONSE", f"\n{response}\n")
+                    else:
+                        self.logger.log("RESPONSE", f"\n{response}\n")
         except Exception as e:
-            self.logger.error(f"Authentication flow failed:\n{e}")
+            self.logger.exception(f"Authentication flow failed:\n{e}")
             await self.close()
 
-    async def process_presences(self):
+    def decode_presence(self, presence: str):
+        if presence[:9] != "<presence":
+            self.logger.debug(
+                f"Skipping decoding presence: presence does not begin with '<presence>'"
+            )
+            return None
+        root = ElementTree.fromstring(presence)
+        try:
+            games = root.find("games")
+            if games is not None:
+                valorant = games.find("valorant")
+                if valorant is not None:
+                    p = valorant.find("p")
+                    if p is not None:
+                        b64_data = p.text
+                        decoded_data = base64.b64decode(b64_data).decode("utf-8")
+                        formatted_data = json.loads(decoded_data)
+                        return formatted_data
+        except Exception as e:
+            self.logger.warning(f"Could not decode presence: {e}")
+            pass
+
+    async def process_presences(self, decode: bool = False):
         """Processes incoming XMPP messages."""
 
         # Loop through to read the socket endlessly
@@ -224,7 +248,18 @@ class RiotXMMPClient:
                         await asyncio.sleep(2)
                         continue
                     else:
-                        self.logger.log("RESPONSE", f"\n{presence}\n")
+                        self.logger.log("RESPONSE", f"\n{presence}")
+                        if decode is True:
+                            decode_data = self.decode_presence(presence)
+                            if decode_data is not None:
+                                self.logger.log(
+                                    "DECODED", f"{json.dumps(decode_data, indent=4)}"
+                                )
+                            else:
+                                self.logger.log(
+                                    "DECODED",
+                                    f"No presence data to decode in response\n",
+                                )
 
                 except asyncio.exceptions.IncompleteReadError:
                     self.logger.warning("Shutting down...")
@@ -253,7 +288,7 @@ class RiotXMMPClient:
             # Determining if request failed. Probably not the best way to do this but it works.
             msg = await self.reader.read(7)
             status = msg.decode("utf-8")
-            if "fail" in status:
+            if "<fail" in status:
                 msg = await self.reader.readuntil(b"</failure>")
                 msg = msg.decode("utf-8")
                 return f"{status}{msg}"
@@ -261,6 +296,7 @@ class RiotXMMPClient:
                 msg = await self.reader.readuntil(separator=seperator)
                 msg = msg.decode("utf-8")
                 return f"{status}{msg}"
+
         except asyncio.exceptions.CancelledError:
             await self.close()
 

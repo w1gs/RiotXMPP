@@ -22,10 +22,10 @@ async def main():
     # Initiate the authentication flow
     await client.start_auth_flow()
 
-    # Don't start processing messages if client is not connected
+    # # Don't start processing messages if client is not connected
     if client.connected is True:
         # Start the main loop to start processing presences
-        await client.process_presences()
+        await client.process_presences(decode=True)
 
 
 if __name__ == "__main__":
