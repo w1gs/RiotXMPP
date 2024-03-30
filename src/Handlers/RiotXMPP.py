@@ -253,7 +253,7 @@ class RiotXMMPClient:
                             decode_data = self.decode_presence(presence)
                             if decode_data is not None:
                                 self.logger.log(
-                                    "DECODED", f"{json.dumps(decode_data, indent=4)}"
+                                    "DECODED", f"\n{json.dumps(decode_data, indent=4)}"
                                 )
                             else:
                                 self.logger.log(
