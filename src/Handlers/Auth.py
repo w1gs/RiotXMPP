@@ -58,7 +58,9 @@ class ValorantAuth:
                 self.logger.debug(f"Riot Client running: {client_name}")
                 return True
             else:
-                self.logger.error(f"Riot Client (RiotClientServices.exe) is not running")
+                self.logger.error(
+                    f"Riot Client (RiotClientServices.exe) is not running"
+                )
                 return False
 
     def _get_lockfile(self) -> dict | None:

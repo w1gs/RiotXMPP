@@ -45,12 +45,12 @@ class RiotXMMPClient:
     """
 
     def __init__(
-            self,
-            credentials: Dict[str, str],
-            chat_host: str,
-            chat_port: int,
-            region: str,
-            puuid: str,
+        self,
+        credentials: Dict[str, str],
+        chat_host: str,
+        chat_port: int,
+        region: str,
+        puuid: str,
     ) -> None:
         """Initializes the RiotXMPP object."""
         self.reader = None
